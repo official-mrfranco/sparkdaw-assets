@@ -27,7 +27,7 @@ let tracks = [];
 let loadedHiHat = null;
 let loadedSnare = null;
 
-const base64HiHat = "808-CH.wav";
+const base64HiHat = "808-ClosedHat.wav";
 const base64Snare = "808-CH.wav";
 
 function initAudio() {
@@ -70,13 +70,12 @@ function playBuffer(buffer, time) {
 // -----------------------------------------
 
 const steps = [
-    new Array(16).fill(0), // row 0 = hi-hat
-    new Array(16).fill(0)  // row 1 = snare
+    new Array(16).fill(0), // HiHat
+    new Array(16).fill(0)  // Snare
 ];
 
 const grid = document.getElementById("grid");
 
-// first col = labels
 function buildGrid() {
     grid.innerHTML = "";
 
@@ -128,22 +127,20 @@ let scheduleAhead = 0.1;  // sec
 function nextStep() {
     let tempo = parseFloat(document.getElementById("tempo").value);
     let secPerBeat = 60 / tempo;
-    nextNoteTime += secPerBeat / 4; // 16th note
+    nextNoteTime += secPerBeat / 4;
     currentStep = (currentStep + 1) % 16;
 }
 
 function scheduleStep(step, time) {
-    // highlight playhead
     const allCells = grid.querySelectorAll("div");
+
     allCells.forEach(cell => cell.style.outline = "none");
 
-    let indexBase = 0 + step + 1; // skip labels
     for (let r = 0; r < 2; r++) {
         let idx = r * 17 + (step + 1);
         allCells[idx].style.outline = "2px solid red";
     }
 
-    // playback
     if (steps[0][step] === 1) playBuffer(loadedHiHat, time);
     if (steps[1][step] === 1) playBuffer(loadedSnare, time);
 }
@@ -154,6 +151,25 @@ function scheduler() {
         nextStep();
     }
     if (isPlaying) setTimeout(scheduler, lookahead);
+}
+
+// -----------------------------------------
+// INSTANT PLAY/STOP
+// -----------------------------------------
+
+function togglePlayInstant() {
+    if (!loadedHiHat || !loadedSnare) {
+        alert("Load engine first.");
+        return;
+    }
+
+    isPlaying = !isPlaying;
+
+    if (isPlaying) {
+        currentStep = 0;
+        nextNoteTime = audioCtx.currentTime; // ZERO DELAY
+        scheduler();
+    }
 }
 
 // -----------------------------------------
@@ -171,19 +187,19 @@ document.getElementById("startBtn").onclick = async () => {
 };
 
 document.getElementById("playSeq").onclick = () => {
-    if (!loadedHiHat || !loadedSnare) {
-        alert("Load engine first.");
-        return;
-    }
-
-    isPlaying = !isPlaying;
-
-    if (isPlaying) {
-        currentStep = 0;
-        nextNoteTime = audioCtx.currentTime + 0.1;
-        scheduler();
-    }
+    togglePlayInstant();
 };
+
+// -----------------------------------------
+// SPACEBAR START/STOP INSTANTLY
+// -----------------------------------------
+
+document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+        e.preventDefault();
+        togglePlayInstant();
+    }
+});
 </script>
 
 </body>
