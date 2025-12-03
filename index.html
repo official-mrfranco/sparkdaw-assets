@@ -24,11 +24,14 @@ let audioCtx;
 let masterGain;
 
 let tracks = [];
-let loadedHiHat = null;
+let loadedOpen = null;
+let loadedClosed = null;
 let loadedSnare = null;
 
-const base64HiHat = "808-ClosedHat.wav";
-const base64Snare = "808-CH.wav";
+// 🔥 Replace these with the actual file paths
+const openHatPath = "808-OpenHat.wav";
+const closedHatPath = "808-ClosedHat.wav";
+const snarePath = "808-Snare.wav";
 
 function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -36,8 +39,6 @@ function initAudio() {
     masterGain = audioCtx.createGain();
     masterGain.gain.value = 1;
     masterGain.connect(audioCtx.destination);
-
-    console.log("Audio Engine Initialized");
 }
 
 function createTrack() {
@@ -66,11 +67,12 @@ function playBuffer(buffer, time) {
 }
 
 // -----------------------------------------
-// STEP SEQUENCER GRID (2 rows x 16 cols)
+// STEP SEQUENCER GRID (3 rows x 16 cols)
 // -----------------------------------------
 
 const steps = [
-    new Array(16).fill(0), // HiHat
+    new Array(16).fill(0), // Open Hat
+    new Array(16).fill(0), // Closed Hat
     new Array(16).fill(0)  // Snare
 ];
 
@@ -79,9 +81,9 @@ const grid = document.getElementById("grid");
 function buildGrid() {
     grid.innerHTML = "";
 
-    const labels = ["HiHat", "Snare"];
+    const labels = ["OH", "CH", "Snare"];
 
-    for (let r = 0; r < 2; r++) {
+    for (let r = 0; r < 3; r++) {
         const label = document.createElement("div");
         label.textContent = labels[r];
         label.style.marginRight = "10px";
@@ -121,28 +123,28 @@ buildGrid();
 let isPlaying = false;
 let currentStep = 0;
 let nextNoteTime = 0;
-let lookahead = 25;       // ms
-let scheduleAhead = 0.1;  // sec
+let lookahead = 25;      
+let scheduleAhead = 0.1;
 
 function nextStep() {
     let tempo = parseFloat(document.getElementById("tempo").value);
     let secPerBeat = 60 / tempo;
-    nextNoteTime += secPerBeat / 4;
+    nextNoteTime += secPerBeat / 4; // 16th
     currentStep = (currentStep + 1) % 16;
 }
 
 function scheduleStep(step, time) {
     const allCells = grid.querySelectorAll("div");
-
     allCells.forEach(cell => cell.style.outline = "none");
 
-    for (let r = 0; r < 2; r++) {
+    for (let r = 0; r < 3; r++) {
         let idx = r * 17 + (step + 1);
         allCells[idx].style.outline = "2px solid red";
     }
 
-    if (steps[0][step] === 1) playBuffer(loadedHiHat, time);
-    if (steps[1][step] === 1) playBuffer(loadedSnare, time);
+    if (steps[0][step] === 1) playBuffer(loadedOpen, time);
+    if (steps[1][step] === 1) playBuffer(loadedClosed, time);
+    if (steps[2][step] === 1) playBuffer(loadedSnare, time);
 }
 
 function scheduler() {
@@ -154,12 +156,23 @@ function scheduler() {
 }
 
 // -----------------------------------------
-// INSTANT PLAY/STOP
+// BUTTONS
 // -----------------------------------------
 
-function togglePlayInstant() {
-    if (!loadedHiHat || !loadedSnare) {
-        alert("Load engine first.");
+document.getElementById("startBtn").onclick = async () => {
+    if (!audioCtx) initAudio();
+    createTrack();
+
+    loadedOpen = await loadAudio(openHatPath);
+    loadedClosed = await loadAudio(closedHatPath);
+    loadedSnare = await loadAudio(snarePath);
+
+    alert("Engine ready. All samples loaded.");
+};
+
+document.getElementById("playSeq").onclick = () => {
+    if (!loadedOpen || !loadedClosed || !loadedSnare) {
+        alert("Start engine first.");
         return;
     }
 
@@ -167,39 +180,10 @@ function togglePlayInstant() {
 
     if (isPlaying) {
         currentStep = 0;
-        nextNoteTime = audioCtx.currentTime; // ZERO DELAY
+        nextNoteTime = audioCtx.currentTime + 0.1;
         scheduler();
     }
-}
-
-// -----------------------------------------
-// BUTTON LOGIC
-// -----------------------------------------
-
-document.getElementById("startBtn").onclick = async () => {
-    if (!audioCtx) initAudio();
-    createTrack();
-
-    loadedHiHat = await loadAudio(base64HiHat);
-    loadedSnare = await loadAudio(base64Snare);
-
-    alert("Engine ready. HiHat + Snare loaded.");
 };
-
-document.getElementById("playSeq").onclick = () => {
-    togglePlayInstant();
-};
-
-// -----------------------------------------
-// SPACEBAR START/STOP INSTANTLY
-// -----------------------------------------
-
-document.addEventListener("keydown", (e) => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        togglePlayInstant();
-    }
-});
 </script>
 
 </body>
